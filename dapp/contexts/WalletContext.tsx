@@ -104,8 +104,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           } catch (stringError: any) {
             // Si falla como string, intentar como bytes
             try {
-              const keyBytes = ethers.getBytes(normalizedKey);
-              wallet = new ethers.Wallet(keyBytes, jsonRpcProvider);
+              // Usar la clave privada directamente como string
+              wallet = new ethers.Wallet(normalizedKey, jsonRpcProvider);
             } catch (bytesError: any) {
               throw new Error(
                 `No se pudo crear wallet con ningún formato. ` +

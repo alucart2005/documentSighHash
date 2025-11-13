@@ -198,8 +198,8 @@ export default function DocumentList() {
 
   if (!isConnected) {
     return (
-      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-6 border border-zinc-200 dark:border-zinc-800">
-        <p className="text-zinc-600 dark:text-zinc-400">
+      <div className="bg-white dark:bg-lapis-lazuli-900 rounded-xl shadow-lg p-6 border-2 border-verdigris-200 dark:border-lapis-lazuli-700">
+        <p className="text-verdigris-700 dark:text-verdigris-300 font-medium">
           Conectando a Anvil...
         </p>
       </div>
@@ -207,63 +207,67 @@ export default function DocumentList() {
   }
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-6 border border-zinc-200 dark:border-zinc-800">
-      <h2 className="text-xl font-semibold mb-4 text-zinc-900 dark:text-zinc-50">
+    <div className="bg-white dark:bg-lapis-lazuli-900 rounded-xl shadow-lg p-6 border-2 border-cerulean-200 dark:border-lapis-lazuli-700">
+      <h2 className="text-2xl font-bold mb-6 text-indigo-dye dark:text-cerulean-200 flex items-center gap-2">
+        <span className="text-2xl">📚</span>
         Documentos en Blockchain
       </h2>
 
-      <div className="space-y-4">
-        <div className="flex gap-2">
+      <div className="space-y-5">
+        <div className="flex gap-3">
           <input
             type="text"
             value={searchHash}
             onChange={(e) => setSearchHash(e.target.value)}
             placeholder="Buscar por hash (0x...)"
-            className="flex-1 px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg
-              bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50
-              focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-4 py-3 border-2 border-cerulean-200 dark:border-lapis-lazuli-600 rounded-xl
+              bg-white dark:bg-lapis-lazuli-800 text-indigo-dye dark:text-cerulean-100
+              focus:outline-none focus:ring-2 focus:ring-cerulean-400 focus:border-cerulean-400
+              transition-all"
             onKeyPress={(e) => e.key === "Enter" && handleSearch()}
           />
           <button
             onClick={handleSearch}
             disabled={loading || !searchHash.trim()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-400
-              text-white font-semibold rounded-lg transition-colors disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-gradient-to-r from-cerulean-500 to-lapis-lazuli-500 hover:from-cerulean-600 hover:to-lapis-lazuli-600 disabled:from-indigo-dye-300 disabled:to-indigo-dye-300
+              text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed transform hover:scale-105 disabled:transform-none"
           >
-            Buscar
+            {loading ? "⏳" : "🔍"} Buscar
           </button>
         </div>
 
         {documents.length === 0 ? (
-          <div className="p-8 text-center text-zinc-600 dark:text-zinc-400">
-            <p>No hay documentos cargados.</p>
-            <p className="text-sm mt-2">
+          <div className="p-10 text-center bg-light-green-50 dark:bg-keppel-900/20 rounded-xl border-2 border-light-green-200 dark:border-keppel-700">
+            <p className="text-indigo-dye-600 dark:text-keppel-300 font-medium mb-2">
+              No hay documentos cargados.
+            </p>
+            <p className="text-sm text-indigo-dye-500 dark:text-keppel-400">
               Busca un documento por su hash para comenzar.
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {documents.map((doc, index) => (
               <div
                 key={index}
-                className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700"
+                className="p-5 bg-gradient-to-br from-light-green-50 to-keppel-50 dark:from-keppel-900/20 dark:to-lapis-lazuli-800 rounded-xl border-2 border-light-green-200 dark:border-keppel-700 shadow-md hover:shadow-lg transition-all"
               >
-                <div className="space-y-2 text-sm">
-                  <p className="text-zinc-600 dark:text-zinc-400">
-                    <span className="font-medium">Hash:</span>{" "}
-                    <span className="font-mono text-zinc-900 dark:text-zinc-50 break-all">
+                <div className="space-y-3 text-sm">
+                  <p className="text-indigo-dye-700 dark:text-keppel-200">
+                    <span className="font-bold">Hash:</span>{" "}
+                    <span className="font-mono text-indigo-dye dark:text-keppel-100 break-all bg-white dark:bg-lapis-lazuli-800 px-2 py-1 rounded border border-keppel-200 dark:border-keppel-700">
                       {doc.hash}
                     </span>
                   </p>
-                  <p className="text-zinc-600 dark:text-zinc-400">
-                    <span className="font-medium">Signer:</span>{" "}
-                    <span className="font-mono text-zinc-900 dark:text-zinc-50">
+                  <p className="text-indigo-dye-700 dark:text-keppel-200">
+                    <span className="font-bold">Signer:</span>{" "}
+                    <span className="font-mono text-indigo-dye dark:text-keppel-100">
                       {formatAddress(doc.signer)}
                     </span>
                   </p>
-                  <p className="text-zinc-600 dark:text-zinc-400">
-                    <span className="font-medium">Timestamp:</span>{" "}
-                    <span className="text-zinc-900 dark:text-zinc-50">
+                  <p className="text-indigo-dye-700 dark:text-keppel-200">
+                    <span className="font-bold">Timestamp:</span>{" "}
+                    <span className="text-indigo-dye dark:text-keppel-100">
                       {formatTimestamp(doc.timestamp)}
                     </span>
                   </p>

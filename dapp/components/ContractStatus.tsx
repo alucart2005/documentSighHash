@@ -39,10 +39,10 @@ export default function ContractStatus() {
 
   if (isDeployed === null || checking) {
     return (
-      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 border border-zinc-200 dark:border-zinc-800 mb-6">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <div className="bg-verdigris-50 dark:bg-verdigris-900/20 rounded-xl shadow-md p-4 border-2 border-verdigris-200 dark:border-verdigris-700 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-3 h-3 bg-verdigris-500 rounded-full animate-pulse shadow-lg shadow-verdigris-400"></div>
+          <p className="text-sm font-medium text-verdigris-700 dark:text-verdigris-300">
             Verificando estado del contrato...
           </p>
         </div>
@@ -52,26 +52,26 @@ export default function ContractStatus() {
 
   if (!isDeployed) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 rounded-lg shadow-md p-6 border border-red-200 dark:border-red-800 mb-6">
-        <div className="flex items-start gap-3">
-          <div className="w-6 h-6 text-red-600 dark:text-red-400">⚠️</div>
+      <div className="bg-bondi-blue-50 dark:bg-bondi-blue-900/30 rounded-xl shadow-lg p-6 border-2 border-bondi-blue-300 dark:border-bondi-blue-700 mb-6">
+        <div className="flex items-start gap-4">
+          <div className="text-2xl">⚠️</div>
           <div className="flex-1">
-            <h3 className="font-semibold text-red-800 dark:text-red-200 mb-2">
+            <h3 className="font-bold text-lg text-bondi-blue-800 dark:text-bondi-blue-200 mb-3">
               Contrato No Desplegado
             </h3>
-            <p className="text-sm text-red-700 dark:text-red-300 mb-3">
+            <p className="text-sm text-bondi-blue-700 dark:text-bondi-blue-300 mb-3">
               El contrato no está desplegado en la dirección:
             </p>
-            <p className="text-xs font-mono bg-red-100 dark:bg-red-900/30 p-2 rounded mb-3 text-red-900 dark:text-red-100">
+            <p className="text-xs font-mono bg-bondi-blue-100 dark:bg-bondi-blue-800 p-3 rounded-lg mb-4 text-bondi-blue-900 dark:text-bondi-blue-100 border border-bondi-blue-200 dark:border-bondi-blue-700">
               {CONTRACT_ADDRESS}
             </p>
-            <div className="space-y-2 text-sm text-red-700 dark:text-red-300">
-              <p className="font-medium">Para desplegar el contrato:</p>
+            <div className="space-y-2 text-sm text-bondi-blue-700 dark:text-bondi-blue-300">
+              <p className="font-semibold">Para desplegar el contrato:</p>
               <ol className="list-decimal list-inside space-y-1 ml-2">
                 <li>Asegúrate de que Anvil esté corriendo</li>
                 <li>Ejecuta en otra terminal:</li>
               </ol>
-              <code className="block bg-red-100 dark:bg-red-900/30 p-2 rounded text-xs mt-2">
+              <code className="block bg-bondi-blue-100 dark:bg-bondi-blue-800 p-3 rounded-lg text-xs mt-2 border border-bondi-blue-200 dark:border-bondi-blue-700 font-mono">
                 cd sc
                 <br />
                 forge script script/FileHashStorage.s.sol:FileHashStorageScript
@@ -84,7 +84,7 @@ export default function ContractStatus() {
             </div>
             <button
               onClick={checkContract}
-              className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded transition-colors"
+              className="mt-4 px-5 py-2.5 bg-bondi-blue-500 hover:bg-bondi-blue-600 text-white text-sm font-semibold rounded-lg transition-all shadow-md hover:shadow-lg transform hover:scale-105"
             >
               Verificar Nuevamente
             </button>
@@ -95,16 +95,18 @@ export default function ContractStatus() {
   }
 
   return (
-    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg shadow-md p-4 border border-green-200 dark:border-green-800 mb-6">
-      <div className="flex items-center gap-2">
-        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-        <p className="text-sm text-green-800 dark:text-green-200">
-          <span className="font-medium">Contrato desplegado:</span>{" "}
-          <span className="font-mono">{formatAddress(CONTRACT_ADDRESS)}</span>
+    <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-xl shadow-lg p-4 border-2 border-emerald-300 dark:border-emerald-600 mb-6">
+      <div className="flex items-center gap-3">
+        <div className="w-3 h-3 bg-emerald-500 rounded-full shadow-lg shadow-emerald-400"></div>
+        <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-200">
+          <span className="font-bold">Contrato desplegado:</span>{" "}
+          <span className="font-mono bg-emerald-100 dark:bg-emerald-800 px-2 py-1 rounded text-emerald-800 dark:text-emerald-100">
+            {formatAddress(CONTRACT_ADDRESS)}
+          </span>
         </p>
         <button
           onClick={checkContract}
-          className="ml-auto text-xs text-green-700 dark:text-green-300 hover:underline"
+          className="ml-auto text-xs text-emerald-600 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-100 hover:underline font-medium transition-colors"
         >
           Actualizar
         </button>
