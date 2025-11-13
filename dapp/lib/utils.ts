@@ -73,3 +73,20 @@ export function bytesToHex(bytes: string): string {
   if (bytes.startsWith("0x")) return bytes;
   return "0x" + bytes;
 }
+
+/**
+ * Valida que un hash sea un bytes32 válido (0x + 64 caracteres hexadecimales)
+ */
+export function isValidHash(hash: string): boolean {
+  if (!hash || typeof hash !== "string") return false;
+
+  // Debe empezar con 0x
+  if (!hash.startsWith("0x")) return false;
+
+  // Debe tener exactamente 66 caracteres (0x + 64 hex)
+  if (hash.length !== 66) return false;
+
+  // Debe contener solo caracteres hexadecimales después de 0x
+  const hexPart = hash.slice(2);
+  return /^[0-9a-fA-F]{64}$/.test(hexPart);
+}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useWallet } from "@/contexts/WalletContext";
 import { calculateFileHash, formatAddress, formatTimestamp } from "@/lib/utils";
+import { CONTRACT_ADDRESS } from "@/lib/contract";
 
 export default function DocumentVerifier() {
   const { contract, isConnected } = useWallet();
@@ -54,8 +55,44 @@ export default function DocumentVerifier() {
       setLoading(true);
       setStatus(null);
 
+      // Verificar que el contrato esté desplegado
+      // En ethers.js v6, el provider está en contract.runner.provider
+      const provider = contract.runner?.provider;
+      if (!provider) {
+        throw new Error(
+          "Provider no disponible. Asegúrate de estar conectado a Anvil."
+        );
+      }
+
+      // Usar CONTRACT_ADDRESS directamente en lugar de contract.target para evitar errores
+      // Verificar si el contrato tiene código
+      const code = await provider.getCode(CONTRACT_ADDRESS);
+      if (!code || code === "0x" || code === "0x0") {
+        throw new Error(
+          "El contrato no está desplegado en la dirección especificada. " +
+            "Por favor despliega el contrato primero usando: " +
+            "forge script script/FileHashStorage.s.sol:FileHashStorageScript --rpc-url http://localhost:8545 --broadcast"
+        );
+      }
+
       // Verificar si el documento existe
-      const exists = await contract.isDocumentStored(hash);
+      let exists: boolean;
+      try {
+        exists = await contract.isDocumentStored(hash);
+      } catch (callError: any) {
+        // Si el error es BAD_DATA con value="0x", el contrato no está desplegado
+        if (
+          callError?.code === "BAD_DATA" ||
+          callError?.message?.includes("could not decode result data")
+        ) {
+          throw new Error(
+            "El contrato no está desplegado o la dirección es incorrecta. " +
+              `Dirección actual: ${CONTRACT_ADDRESS}. ` +
+              "Por favor verifica que el contrato esté desplegado y actualiza CONTRACT_ADDRESS en lib/contract.ts"
+          );
+        }
+        throw callError;
+      }
 
       if (!exists) {
         setStatus({
@@ -223,6 +260,3 @@ export default function DocumentVerifier() {
     </div>
   );
 }
-
-
-

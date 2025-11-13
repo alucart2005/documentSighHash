@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useWallet } from "@/contexts/WalletContext";
-import { formatAddress, formatTimestamp } from "@/lib/utils";
+import { formatAddress, formatTimestamp, isValidHash } from "@/lib/utils";
+import { CONTRACT_ADDRESS } from "@/lib/contract";
 import { ethers } from "ethers";
 
 interface DocumentInfo {
@@ -18,20 +19,106 @@ export default function DocumentList() {
   const [loading, setLoading] = useState(false);
   const [searchHash, setSearchHash] = useState("");
 
+  const loadDocument = useCallback(
+    async (hash: string) => {
+      if (!contract) return null;
+
+      // Validar hash antes de hacer cualquier llamada
+      if (!hash || !isValidHash(hash)) {
+        console.warn("Hash inválido:", hash);
+        return null;
+      }
+
+      try {
+        // Verificar que el contrato esté desplegado
+        // En ethers.js v6, el provider está en contract.runner.provider
+        const contractProvider = contract.runner?.provider || provider;
+        if (contractProvider) {
+          // Usar CONTRACT_ADDRESS directamente en lugar de contract.target
+          const code = await contractProvider.getCode(CONTRACT_ADDRESS);
+          if (!code || code === "0x" || code === "0x0") {
+            console.warn("Contrato no desplegado en", CONTRACT_ADDRESS);
+            return null;
+          }
+        }
+
+        const exists = await contract.isDocumentStored(hash);
+        if (!exists) {
+          return null;
+        }
+
+        const [documentHash, timestamp, signer, signature] =
+          await contract.getDocumentInfo(hash);
+
+        return {
+          hash: documentHash,
+          timestamp,
+          signer,
+          signature,
+        };
+      } catch (error: any) {
+        // Ignorar errores BAD_DATA (contrato no desplegado)
+        if (
+          error?.code === "BAD_DATA" ||
+          error?.message?.includes("could not decode result data")
+        ) {
+          console.warn(
+            "Contrato no desplegado o error de decodificación:",
+            error
+          );
+          return null;
+        }
+        console.error("Error loading document:", error);
+        return null;
+      }
+    },
+    [contract, provider]
+  );
+
   // Escuchar eventos de nuevos documentos
   useEffect(() => {
     if (!contract || !provider) return;
 
     const filter = contract.filters.DocumentStored();
 
-    const handleNewDocument = (
-      hash: string,
-      signer: string,
-      timestamp: bigint
-    ) => {
-      console.log("Nuevo documento almacenado:", { hash, signer, timestamp });
-      // Recargar documentos cuando se almacena uno nuevo
-      loadDocument(hash);
+    // En ethers.js v6, los eventos pueden venir en diferentes formatos
+    // Necesitamos manejar tanto el formato de argumentos directos como el formato de evento completo
+    const handleNewDocument = (...args: any[]) => {
+      try {
+        // Si el primer argumento es un objeto con 'args', es un evento completo
+        let hash: string;
+        if (args[0] && typeof args[0] === "object" && args[0].args) {
+          // Formato de evento completo: extraer args
+          const eventArgs = args[0].args;
+          hash = eventArgs[0]; // Primer argumento es el hash
+          const signer = eventArgs[1];
+          const timestamp = eventArgs[2];
+          console.log("Nuevo documento almacenado (evento completo):", {
+            hash,
+            signer,
+            timestamp,
+          });
+        } else {
+          // Formato de argumentos directos
+          hash = args[0];
+          const signer = args[1];
+          const timestamp = args[2];
+          console.log("Nuevo documento almacenado (argumentos directos):", {
+            hash,
+            signer,
+            timestamp,
+          });
+        }
+
+        // Validar hash antes de cargar
+        if (hash && isValidHash(hash)) {
+          loadDocument(hash);
+        } else {
+          console.warn("Hash inválido recibido del evento:", hash);
+        }
+      } catch (error) {
+        console.error("Error procesando evento DocumentStored:", error);
+      }
     };
 
     contract.on(filter, handleNewDocument);
@@ -39,38 +126,42 @@ export default function DocumentList() {
     return () => {
       contract.off(filter, handleNewDocument);
     };
-  }, [contract, provider]);
-
-  const loadDocument = async (hash: string) => {
-    if (!contract) return;
-
-    try {
-      const exists = await contract.isDocumentStored(hash);
-      if (!exists) {
-        return null;
-      }
-
-      const [documentHash, timestamp, signer, signature] =
-        await contract.getDocumentInfo(hash);
-
-      return {
-        hash: documentHash,
-        timestamp,
-        signer,
-        signature,
-      };
-    } catch (error) {
-      console.error("Error loading document:", error);
-      return null;
-    }
-  };
+  }, [contract, provider, loadDocument]);
 
   const handleSearch = async () => {
     if (!searchHash.trim() || !contract) return;
 
+    const trimmedHash = searchHash.trim();
+
+    // Validar formato del hash antes de hacer la búsqueda
+    if (!isValidHash(trimmedHash)) {
+      alert(
+        "Hash inválido. Por favor ingresa un hash válido en formato hexadecimal (0x + 64 caracteres).\n\n" +
+          `Ejemplo: 0x61dd80061de1c2c91755198a43173949493499f1dbadcb6319653640d51092b7`
+      );
+      setSearchHash("");
+      return;
+    }
+
     setLoading(true);
     try {
-      const doc = await loadDocument(searchHash.trim());
+      // Verificar que el contrato esté desplegado
+      // En ethers.js v6, el provider está en contract.runner.provider
+      const contractProvider = contract.runner?.provider || provider;
+      if (contractProvider) {
+        // Usar CONTRACT_ADDRESS directamente en lugar de contract.target
+        const code = await contractProvider.getCode(CONTRACT_ADDRESS);
+        if (!code || code === "0x" || code === "0x0") {
+          alert(
+            "El contrato no está desplegado. " +
+              "Por favor despliega el contrato primero usando: " +
+              "forge script script/FileHashStorage.s.sol:FileHashStorageScript --rpc-url http://localhost:8545 --broadcast"
+          );
+          return;
+        }
+      }
+
+      const doc = await loadDocument(trimmedHash);
       if (doc) {
         // Verificar si ya existe en la lista
         const exists = documents.some(
@@ -82,9 +173,23 @@ export default function DocumentList() {
       } else {
         alert("Documento no encontrado");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error searching document:", error);
-      alert("Error al buscar el documento");
+      if (
+        error?.code === "BAD_DATA" ||
+        error?.message?.includes("could not decode result data")
+      ) {
+        alert(
+          "El contrato no está desplegado o la dirección es incorrecta. " +
+            "Por favor verifica el deployment del contrato."
+        );
+      } else {
+        alert(
+          `Error al buscar el documento: ${
+            error?.message || "Error desconocido"
+          }`
+        );
+      }
     } finally {
       setLoading(false);
       setSearchHash("");
@@ -171,6 +276,3 @@ export default function DocumentList() {
     </div>
   );
 }
-
-
-

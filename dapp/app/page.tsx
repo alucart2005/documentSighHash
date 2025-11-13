@@ -5,6 +5,7 @@ import FileUpload from "@/components/FileUpload";
 import DocumentVerifier from "@/components/DocumentVerifier";
 import DocumentList from "@/components/DocumentList";
 import ConnectionStatus from "@/components/ConnectionStatus";
+import ContractStatus from "@/components/ContractStatus";
 
 export default function Home() {
   return (
@@ -19,6 +20,8 @@ export default function Home() {
             Almacena y verifica hashes de documentos en la blockchain
           </p>
         </header>
+
+        <ContractStatus />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div>

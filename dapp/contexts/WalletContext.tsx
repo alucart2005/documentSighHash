@@ -154,6 +154,18 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         console.warn("Could not check wallet balance:", balanceError);
       }
 
+      // Verificar que el contrato esté desplegado en la dirección especificada
+      const code = await jsonRpcProvider.getCode(CONTRACT_ADDRESS);
+      if (code === "0x" || code === "0x0") {
+        console.warn(
+          `⚠️ No hay código en la dirección ${CONTRACT_ADDRESS}. ` +
+            `El contrato no está desplegado. Por favor despliega el contrato primero.`
+        );
+        // Continuar de todas formas, pero el usuario verá errores al intentar usar el contrato
+      } else {
+        console.log(`✓ Contrato encontrado en ${CONTRACT_ADDRESS}`);
+      }
+
       // Crear instancia del contrato
       const contractInstance = new ethers.Contract(
         CONTRACT_ADDRESS,

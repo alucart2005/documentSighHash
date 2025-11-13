@@ -72,7 +72,7 @@ export const FILE_HASH_STORAGE_ABI = [
 
 // Dirección del contrato (se actualizará después del deployment)
 // Por ahora usamos una dirección placeholder
-export const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+export const CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 
 // URL de Anvil
 export const ANVIL_RPC_URL = "http://localhost:8545";
@@ -84,7 +84,7 @@ export const ANVIL_PRIVATE_KEYS = [
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
   "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
   "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6",
-  "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f873d9e39c4d98e0e0c0",
+  "0x047e179ec197488593b187f80a00eb0da91f1b9d0b13f873d9e39c4d98e0e0c0",
   "0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba",
   "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9f0af8fda5cb2a4078cb2da",
   "0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356",
@@ -108,9 +108,12 @@ export function normalizePrivateKey(key: string): string {
   if (hexPart.length < 64) {
     const paddedHex = hexPart.padStart(64, "0");
     normalized = "0x" + paddedHex;
-    console.warn(
-      `Clave privada tenía ${hexPart.length} caracteres, rellenada a 64: ${normalized}`
-    );
+    // Solo mostrar warning en desarrollo
+    if (process.env.NODE_ENV === "development") {
+      console.debug(
+        `Clave privada normalizada: ${hexPart.length} -> 64 caracteres`
+      );
+    }
   }
 
   // Validar longitud final (0x + 64 caracteres hex = 66 caracteres)

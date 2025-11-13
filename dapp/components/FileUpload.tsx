@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useWallet } from "@/contexts/WalletContext";
 import { calculateFileHash, signHash } from "@/lib/utils";
+import { CONTRACT_ADDRESS } from "@/lib/contract";
 
 export default function FileUpload() {
   const { currentWallet, contract, isConnected } = useWallet();
@@ -56,6 +57,52 @@ export default function FileUpload() {
       setLoading(true);
       setStatus(null);
 
+      // Verificar que el contrato esté desplegado
+      // En ethers.js v6, el provider está en contract.runner.provider o podemos usar currentWallet.provider
+      const provider = contract.runner?.provider || currentWallet?.provider;
+      if (!provider) {
+        throw new Error("Provider no disponible");
+      }
+
+      // Usar CONTRACT_ADDRESS directamente en lugar de contract.target para evitar errores
+      const code = await provider.getCode(CONTRACT_ADDRESS);
+      if (!code || code === "0x" || code === "0x0") {
+        throw new Error(
+          "El contrato no está desplegado. " +
+            "Por favor despliega el contrato primero usando: " +
+            "forge script script/FileHashStorage.s.sol:FileHashStorageScript --rpc-url http://localhost:8545 --broadcast"
+        );
+      }
+
+      // Verificar si el documento ya está almacenado antes de intentar almacenarlo
+      const alreadyStored = await contract.isDocumentStored(hash);
+      if (alreadyStored) {
+        // Obtener información del documento existente
+        try {
+          const [documentHash, timestamp, signer, signature] =
+            await contract.getDocumentInfo(hash);
+          const storedDate = new Date(
+            Number(timestamp) * 1000
+          ).toLocaleString();
+          throw new Error(
+            `Este documento ya está almacenado en la blockchain.\n\n` +
+              `Hash: ${documentHash}\n` +
+              `Almacenado por: ${signer}\n` +
+              `Fecha: ${storedDate}\n\n` +
+              `No puedes almacenar el mismo documento dos veces.`
+          );
+        } catch (infoError: any) {
+          // Si no podemos obtener la info, mostrar mensaje genérico
+          if (!infoError.message.includes("ya está almacenado")) {
+            throw new Error(
+              "Este documento ya está almacenado en la blockchain. " +
+                "No puedes almacenar el mismo documento dos veces."
+            );
+          }
+          throw infoError;
+        }
+      }
+
       // Firmar el hash
       const signature = await signHash(hash, currentWallet);
 
@@ -79,11 +126,33 @@ export default function FileUpload() {
       ) as HTMLInputElement;
       if (fileInput) fileInput.value = "";
     } catch (error: any) {
+      // Detectar errores específicos del contrato
+      let errorMessage = "Error al almacenar el documento";
+
+      if (error?.reason) {
+        // Error revertido del contrato
+        errorMessage = error.reason;
+      } else if (error?.data?.message) {
+        // Error con data.message
+        errorMessage = error.data.message;
+      } else if (error?.message) {
+        // Error estándar
+        errorMessage = error.message;
+
+        // Detectar específicamente el error "document already stored"
+        if (
+          error.message.includes("document already stored") ||
+          error.message.includes("ya está almacenado")
+        ) {
+          errorMessage = error.message;
+        }
+      }
+
       setStatus({
         type: "error",
-        message: error?.message || "Error al almacenar el documento",
+        message: errorMessage,
       });
-      console.error(error);
+      console.error("Error almacenando documento:", error);
     } finally {
       setLoading(false);
     }
@@ -180,6 +249,3 @@ export default function FileUpload() {
     </div>
   );
 }
-
-
-
