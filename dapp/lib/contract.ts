@@ -70,9 +70,8 @@ export const FILE_HASH_STORAGE_ABI = [
   },
 ] as const;
 
-// Dirección del contrato (se actualizará después del deployment)
-// Por ahora usamos una dirección placeholder
-export const CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+// Dirección del contrato desplegado en Anvil
+export const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
 // URL de Anvil
 export const ANVIL_RPC_URL = "http://localhost:8545";
