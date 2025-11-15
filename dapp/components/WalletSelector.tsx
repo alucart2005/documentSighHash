@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useWallet } from "@/contexts/WalletContext";
 import { formatAddress } from "@/lib/utils";
+import { ethers } from "ethers";
 
 export default function WalletSelector() {
   const {
@@ -11,10 +12,57 @@ export default function WalletSelector() {
     currentWalletIndex,
     selectWallet,
     isConnected,
+    provider,
   } = useWallet();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [balance, setBalance] = useState<string | null>(null);
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Obtener saldo de la wallet activa
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (!provider || !currentWallet) return;
+
+      setIsLoadingBalance(true);
+      try {
+        const balanceWei = await provider.getBalance(currentWallet.address);
+        const balanceEth = ethers.formatEther(balanceWei);
+        setBalance(parseFloat(balanceEth).toFixed(4));
+      } catch (error) {
+        console.error("Error obteniendo saldo:", error);
+        setBalance("Error");
+      } finally {
+        setIsLoadingBalance(false);
+      }
+    };
+
+    if (isConnected && currentWallet && provider) {
+      fetchBalance();
+    }
+  }, [isConnected, currentWallet, provider, currentWalletIndex]);
+
+  // Cerrar dropdown al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isDropdownOpen]);
 
   if (!isConnected || !currentWallet) {
     return (
@@ -32,98 +80,152 @@ export default function WalletSelector() {
   };
 
   return (
-    <div className="bg-white dark:bg-lapis-lazuli-900 rounded-xl shadow-lg p-6 border-2 border-emerald-200 dark:border-lapis-lazuli-700">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white dark:bg-lapis-lazuli-900 rounded-xl shadow-lg border-2 border-emerald-200 dark:border-lapis-lazuli-700">
+      {/* Header con título y botón de ayuda */}
+      <div className="flex items-center justify-between p-6 pb-4 border-b border-emerald-100 dark:border-lapis-lazuli-700">
         <h2 className="text-2xl font-bold text-indigo-dye dark:text-emerald-200 flex items-center gap-2">
           <span className="text-2xl">👛</span>
           Wallet Activa
         </h2>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowHelp(!showHelp)}
-            className="p-2 rounded-lg bg-keppel-100 dark:bg-keppel-900/30 hover:bg-keppel-200 dark:hover:bg-keppel-900/50 border border-keppel-300 dark:border-keppel-700 transition-colors"
-            title="Ayuda"
-            aria-label="Mostrar ayuda"
-          >
-            <span className="text-lg">❓</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Wallet activa - Vista compacta */}
-      <div className="mb-4">
-        <div className="p-4 rounded-xl border-2 bg-emerald-100 dark:bg-emerald-900/30 border-emerald-500 dark:border-emerald-500 shadow-md">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-semibold text-indigo-dye dark:text-emerald-200">
-                Wallet {currentWalletIndex + 1}
-              </p>
-              <p className="text-sm text-keppel-600 dark:text-keppel-300 font-mono">
-                {formatAddress(currentWallet.address)}
-              </p>
-            </div>
-            <span className="text-emerald-600 dark:text-emerald-400 font-bold text-lg">
-              ✓ Activa
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Dropdown para cambiar wallet */}
-      <div className="relative mb-4">
         <button
-          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="w-full p-3 rounded-xl border-2 bg-light-green-50 dark:bg-lapis-lazuli-800 border-keppel-200 dark:border-lapis-lazuli-600 hover:bg-light-green-100 dark:hover:bg-lapis-lazuli-700 hover:border-keppel-300 transition-all text-left flex items-center justify-between"
+          onClick={() => setShowHelp(!showHelp)}
+          className="p-2 rounded-lg bg-keppel-100 dark:bg-keppel-900/30 hover:bg-keppel-200 dark:hover:bg-keppel-900/50 border border-keppel-300 dark:border-keppel-700 transition-colors"
+          title="Ayuda"
+          aria-label="Mostrar ayuda"
         >
-          <span className="font-medium text-indigo-dye dark:text-emerald-200">
-            {isDropdownOpen ? "Ocultar wallets" : "Cambiar wallet"}
-          </span>
-          <span className="text-keppel-600 dark:text-keppel-300">
-            {isDropdownOpen ? "▲" : "▼"}
-          </span>
+          <span className="text-lg">❓</span>
         </button>
+      </div>
 
-        {isDropdownOpen && (
-          <div className="mt-2 space-y-2 max-h-64 overflow-y-auto rounded-xl border-2 border-keppel-200 dark:border-lapis-lazuli-600 bg-white dark:bg-lapis-lazuli-800 p-2">
-            {wallets.map((wallet, index) => (
-              <button
-                key={index}
-                onClick={() => handleWalletSelect(index)}
-                className={`w-full p-3 rounded-xl border-2 transition-all text-left ${
-                  index === currentWalletIndex
-                    ? "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-500 dark:border-emerald-500 shadow-md"
-                    : "bg-light-green-50 dark:bg-lapis-lazuli-700 border-keppel-200 dark:border-lapis-lazuli-500 hover:bg-light-green-100 dark:hover:bg-lapis-lazuli-600 hover:border-keppel-300"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-indigo-dye dark:text-emerald-200">
-                      Wallet {index + 1}
+      {/* Elemento unificado: Wallet activa con dropdown integrado */}
+      <div className="p-6" ref={dropdownRef}>
+        <div className="relative">
+          {/* Contenedor principal de la wallet activa */}
+          <div
+            className={`rounded-xl border-2 transition-all duration-200 ${
+              isDropdownOpen
+                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-400 dark:border-emerald-600 shadow-lg"
+                : "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-500 dark:border-emerald-500 shadow-md hover:shadow-lg"
+            }`}
+          >
+            {/* Información de la wallet activa */}
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-200 dark:bg-emerald-900/40 px-3 py-1 rounded-full">
+                        Wallet {currentWalletIndex + 1}
+                      </span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-sm flex items-center gap-1">
+                        <span>✓</span>
+                        <span>Activa</span>
+                      </span>
+                    </div>
+                    {/* Saldo de la cuenta al lado derecho */}
+                    <div className="bg-gradient-to-r from-emerald-500 to-keppel-500 rounded-lg px-4 py-2 border border-emerald-400 dark:border-emerald-600 shadow-md">
+                      <div className="flex items-baseline gap-2">
+                        {isLoadingBalance ? (
+                          <span className="text-sm font-bold text-white animate-pulse">
+                            ...
+                          </span>
+                        ) : balance !== null ? (
+                          <>
+                            <span className="text-lg font-bold text-white">
+                              {balance}
+                            </span>
+                            <span className="text-sm font-semibold text-emerald-100">
+                              ETH
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-sm font-bold text-white">
+                            -
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Dirección completa prominente */}
+                  <div className="bg-white dark:bg-lapis-lazuli-800 rounded-lg p-3 border border-emerald-200 dark:border-lapis-lazuli-600">
+                    <p className="text-xs font-medium text-keppel-600 dark:text-keppel-400 mb-1">
+                      Dirección completa:
                     </p>
-                    <p className="text-sm text-keppel-600 dark:text-keppel-300 font-mono">
-                      {formatAddress(wallet.address)}
+                    <p className="text-base font-mono text-indigo-dye dark:text-emerald-200 break-all select-all">
+                      {currentWallet.address}
                     </p>
                   </div>
-                  {index === currentWalletIndex && (
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                      ✓
-                    </span>
-                  )}
                 </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+              </div>
 
-      {/* Información de la wallet actual */}
-      <div className="p-4 bg-keppel-50 dark:bg-keppel-900/20 rounded-xl border border-keppel-200 dark:border-keppel-700">
-        <p className="text-sm font-medium text-keppel-700 dark:text-keppel-300">
-          Dirección completa:{" "}
-          <span className="font-mono text-indigo-dye dark:text-keppel-200 font-semibold break-all">
-            {currentWallet.address}
-          </span>
-        </p>
+              {/* Botón para abrir/cerrar dropdown */}
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="w-full mt-3 px-4 py-2.5 rounded-lg bg-white dark:bg-lapis-lazuli-800 border-2 border-emerald-300 dark:border-lapis-lazuli-600 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-all flex items-center justify-between group"
+                aria-expanded={isDropdownOpen}
+                aria-label="Cambiar wallet"
+              >
+                <span className="font-medium text-indigo-dye dark:text-emerald-200 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">
+                  {isDropdownOpen ? "Ocultar wallets" : "Cambiar wallet"}
+                </span>
+                <span
+                  className={`text-emerald-600 dark:text-emerald-400 transition-transform duration-200 ${
+                    isDropdownOpen ? "rotate-180" : ""
+                  }`}
+                >
+                  ▼
+                </span>
+              </button>
+            </div>
+
+            {/* Dropdown de wallets */}
+            {isDropdownOpen && (
+              <div className="px-5 pb-5">
+                <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-lapis-lazuli-600">
+                  <p className="text-xs font-semibold text-keppel-600 dark:text-keppel-400 mb-2 uppercase tracking-wide">
+                    Seleccionar wallet:
+                  </p>
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {wallets.map((wallet, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleWalletSelect(index)}
+                        className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
+                          index === currentWalletIndex
+                            ? "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-400 dark:border-emerald-500 shadow-sm"
+                            : "bg-white dark:bg-lapis-lazuli-800 border-keppel-200 dark:border-lapis-lazuli-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 hover:border-emerald-300 dark:hover:border-emerald-400"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-semibold text-indigo-dye dark:text-emerald-200">
+                                Wallet {index + 1}
+                              </span>
+                              {index === currentWalletIndex && (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                                  (Actual)
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-keppel-600 dark:text-keppel-300 font-mono">
+                              {formatAddress(wallet.address)}
+                            </p>
+                          </div>
+                          {index === currentWalletIndex && (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold text-lg ml-2">
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Modal de ayuda */}
@@ -154,7 +256,7 @@ export default function WalletSelector() {
                     <span className="font-mono bg-keppel-100 dark:bg-keppel-900/30 px-2 py-1 rounded">
                       "Cambiar wallet"
                     </span>{" "}
-                    debajo de la wallet activa
+                    dentro del contenedor de la wallet activa
                   </li>
                   <li>
                     Se desplegará un menú con todas las wallets disponibles (10
@@ -199,7 +301,8 @@ export default function WalletSelector() {
                 <p className="text-sm text-keppel-600 dark:text-keppel-400">
                   💡 <strong>Tip:</strong> La wallet activa se usa
                   automáticamente para todas las operaciones de firma y
-                  almacenamiento en la blockchain.
+                  almacenamiento en la blockchain. La dirección completa está
+                  visible y se puede copiar fácilmente.
                 </p>
               </div>
             </div>

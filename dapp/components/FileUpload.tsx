@@ -180,20 +180,48 @@ export default function FileUpload() {
           <label className="block text-sm font-semibold text-indigo-dye-600 dark:text-keppel-300 mb-2">
             Seleccionar Archivo
           </label>
-          <input
-            id="file-input"
-            type="file"
-            onChange={handleFileChange}
-            className="block w-full text-sm text-keppel-600 dark:text-keppel-300
-              file:mr-4 file:py-2.5 file:px-5
-              file:rounded-xl file:border-0
-              file:text-sm file:font-semibold
-              file:bg-emerald-500 file:text-white
-              hover:file:bg-emerald-600 file:transition-all
-              file:shadow-md hover:file:shadow-lg file:cursor-pointer
-              dark:file:bg-emerald-600 dark:hover:file:bg-emerald-700"
-            disabled={loading}
-          />
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+            {/* Input de archivo - Examinar */}
+            <div className="flex-1 min-w-0">
+              <input
+                id="file-input"
+                type="file"
+                onChange={handleFileChange}
+                className="block w-full text-sm text-keppel-600 dark:text-keppel-300
+                  file:mr-4 file:py-2.5 file:px-5
+                  file:rounded-xl file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-emerald-500 file:text-white
+                  hover:file:bg-emerald-600 file:transition-all
+                  file:shadow-md hover:file:shadow-lg file:cursor-pointer
+                  dark:file:bg-emerald-600 dark:hover:file:bg-emerald-700"
+                disabled={loading}
+              />
+            </div>
+
+            {/* Botón Firmar y Almacenar */}
+            <button
+              onClick={handleStore}
+              disabled={!file || !hash || loading}
+              className="flex-shrink-0 flex items-center justify-center gap-2 py-2.5 px-5 sm:px-6 bg-gradient-to-r from-emerald-500 to-keppel-500 hover:from-emerald-600 hover:to-keppel-600 disabled:from-indigo-dye-300 disabled:to-indigo-dye-300 
+                text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed transform hover:scale-[1.02] disabled:transform-none
+                whitespace-nowrap text-sm sm:text-base"
+            >
+              {loading ? (
+                <>
+                  <span>⏳</span>
+                  <span className="hidden sm:inline">Procesando...</span>
+                </>
+              ) : (
+                <>
+                  <span>🔒</span>
+                  <span className="hidden sm:inline">Firmar y Almacenar</span>
+                  <span className="sm:hidden">Firmar</span>
+                  <span className="hidden sm:inline">⛓️</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {file && (
@@ -218,15 +246,6 @@ export default function FileUpload() {
             </p>
           </div>
         )}
-
-        <button
-          onClick={handleStore}
-          disabled={!file || !hash || loading}
-          className="w-full py-3.5 px-5 bg-gradient-to-r from-emerald-500 to-keppel-500 hover:from-emerald-600 hover:to-keppel-600 disabled:from-indigo-dye-300 disabled:to-indigo-dye-300 
-            text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed transform hover:scale-[1.02] disabled:transform-none"
-        >
-          {loading ? "⏳ Procesando..." : "✍️ Firmar y Almacenar en Blockchain"}
-        </button>
 
         {status && (
           <div
