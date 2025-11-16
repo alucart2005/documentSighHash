@@ -4,12 +4,10 @@ import WalletSelector from "@/components/WalletSelector";
 import FileUpload from "@/components/FileUpload";
 import DocumentVerifier from "@/components/DocumentVerifier";
 import DocumentList from "@/components/DocumentList";
-import ConnectionStatus from "@/components/ConnectionStatus";
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-mindaro-900 dark:bg-indigo-dye-100 py-8 px-4">
-      <ConnectionStatus />
       <div className="max-w-7xl mx-auto">
         {/* Header - Single-line compact design */}
         <header className="mb-8">
