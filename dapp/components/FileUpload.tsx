@@ -18,18 +18,37 @@ export default function FileUpload() {
     message: string;
   } | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [processingStep, setProcessingStep] = useState<string>("");
+  const [copiedTxHash, setCopiedTxHash] = useState(false);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
     setFile(selectedFile);
+    setHash(""); // Limpiar hash anterior
     setStatus(null);
+  };
 
+  const handleStore = async () => {
+    if (!file || !currentWallet || !contract) {
+      setStatus({ type: "error", message: "Por favor selecciona un archivo" });
+      return;
+    }
+
+    // Calcular hash antes de mostrar el modal
     try {
       setLoading(true);
-      const fileHash = await calculateFileHash(selectedFile);
+      setStatus(null);
+      setProcessingStep("Calculando hash del archivo...");
+
+      const fileHash = await calculateFileHash(file);
       setHash(fileHash);
+      setProcessingStep("");
+
+      // Mostrar modal de confirmación
+      setShowConfirmModal(true);
     } catch (error) {
       setStatus({
         type: "error",
@@ -38,28 +57,23 @@ export default function FileUpload() {
       console.error(error);
     } finally {
       setLoading(false);
+      setProcessingStep("");
     }
   };
 
-  const handleStore = async () => {
+  const handleConfirmStore = async () => {
     if (!file || !hash || !currentWallet || !contract) {
       setStatus({ type: "error", message: "Por favor selecciona un archivo" });
+      setShowConfirmModal(false);
       return;
     }
 
-    // Confirmación antes de firmar y almacenar
-    const confirmed = window.confirm(
-      `¿Estás seguro de que deseas firmar y almacenar este documento?\n\n` +
-        `Archivo: ${file.name}\n` +
-        `Hash: ${hash}\n` +
-        `Wallet: ${currentWallet.address}`
-    );
-
-    if (!confirmed) return;
+    setShowConfirmModal(false);
 
     try {
       setLoading(true);
       setStatus(null);
+      setProcessingStep("Verificando contrato...");
 
       // Verificar que el contrato esté desplegado
       // En ethers.js v6, el provider está en contract.runner.provider o podemos usar currentWallet.provider
@@ -69,6 +83,7 @@ export default function FileUpload() {
       }
 
       // Usar la configuración dinámica del contrato
+      setProcessingStep("Verificando despliegue del contrato...");
       const code = await provider.getCode(contractConfig.contractAddress);
       if (!code || code === "0x" || code === "0x0") {
         throw new Error(
@@ -79,6 +94,7 @@ export default function FileUpload() {
       }
 
       // Verificar si el documento ya está almacenado antes de intentar almacenarlo
+      setProcessingStep("Verificando si el documento ya existe...");
       const alreadyStored = await contract.isDocumentStored(hash);
       if (alreadyStored) {
         // Obtener información del documento existente
@@ -108,16 +124,21 @@ export default function FileUpload() {
       }
 
       // Firmar el hash
+      setProcessingStep("Firmando documento con tu wallet...");
       const signature = await signHash(hash, currentWallet);
 
       // Obtener timestamp actual
       const timestamp = Math.floor(Date.now() / 1000);
 
       // Almacenar en el contrato
+      setProcessingStep("Enviando transacción a la blockchain...");
       const tx = await contract.storeDocumentHash(hash, timestamp, signature);
+
+      setProcessingStep("Esperando confirmación de la transacción...");
       await tx.wait();
 
       // Obtener información del documento almacenado para guardarlo localmente
+      setProcessingStep("Obteniendo información del documento almacenado...");
       const [documentHash, documentTimestamp, signer, documentSignature] =
         await contract.getDocumentInfo(hash);
 
@@ -140,6 +161,7 @@ export default function FileUpload() {
       // Limpiar formulario
       setFile(null);
       setHash("");
+      setProcessingStep("");
       const fileInput = document.getElementById(
         "file-input"
       ) as HTMLInputElement;
@@ -171,9 +193,11 @@ export default function FileUpload() {
         type: "error",
         message: errorMessage,
       });
+      setProcessingStep("");
       console.error("Error almacenando documento:", error);
     } finally {
       setLoading(false);
+      setProcessingStep("");
     }
   };
 
@@ -234,7 +258,7 @@ export default function FileUpload() {
             {/* Botón Firmar y Almacenar */}
             <button
               onClick={handleStore}
-              disabled={!file || !hash || loading}
+              disabled={!file || loading}
               className="flex-shrink-0 flex items-center justify-center gap-2 py-2.5 px-5 sm:px-6 bg-gradient-to-r from-emerald-500 to-keppel-500 hover:from-emerald-600 hover:to-keppel-600 disabled:from-indigo-dye-300 disabled:to-indigo-dye-300 
                 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed transform hover:scale-[1.02] disabled:transform-none
                 whitespace-nowrap text-sm sm:text-base"
@@ -279,27 +303,211 @@ export default function FileUpload() {
           </div>
         )}
 
+        {/* Indicador de progreso durante el procesamiento */}
+        {loading && processingStep && (
+          <div className="p-5 bg-gradient-to-r from-emerald-50 to-keppel-50 dark:from-emerald-900/20 dark:to-keppel-900/20 rounded-xl border-2 border-emerald-300 dark:border-emerald-600">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 dark:border-emerald-400"></div>
+              <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+                {processingStep}
+              </p>
+            </div>
+            <div className="w-full bg-emerald-200 dark:bg-emerald-800 rounded-full h-2">
+              <div
+                className="bg-emerald-600 dark:bg-emerald-400 h-2 rounded-full animate-pulse"
+                style={{ width: "60%" }}
+              ></div>
+            </div>
+          </div>
+        )}
+
         {status && (
           <div
-            className={`p-4 rounded-xl border-2 ${
+            className={`p-5 rounded-xl border-2 animate-in fade-in slide-in-from-top-2 duration-300 ${
               status.type === "success"
-                ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-600"
-                : "bg-bondi-blue-50 dark:bg-bondi-blue-900/30 border-bondi-blue-300 dark:border-bondi-blue-600"
+                ? "bg-gradient-to-r from-emerald-50 to-keppel-50 dark:from-emerald-900/30 border-emerald-400 dark:border-emerald-600 shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/50"
+                : "bg-gradient-to-r from-bondi-blue-50 to-cerulean-50 dark:from-bondi-blue-900/30 dark:to-cerulean-900/30 border-bondi-blue-400 dark:border-bondi-blue-600 shadow-lg shadow-bondi-blue-200/50 dark:shadow-bondi-blue-900/50"
             }`}
           >
-            <p
-              className={`text-sm font-medium ${
-                status.type === "success"
-                  ? "text-emerald-800 dark:text-emerald-200"
-                  : "text-bondi-blue-800 dark:text-bondi-blue-200"
-              }`}
-            >
-              {status.type === "success" ? "✓ " : "⚠ "}
-              {status.message}
-            </p>
+            <div className="flex items-start gap-3">
+              <div
+                className={`text-2xl flex-shrink-0 ${
+                  status.type === "success"
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-bondi-blue-600 dark:text-bondi-blue-400"
+                }`}
+              >
+                {status.type === "success" ? "✓" : "⚠️"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p
+                  className={`text-sm font-semibold mb-1 ${
+                    status.type === "success"
+                      ? "text-emerald-800 dark:text-emerald-200"
+                      : "text-bondi-blue-800 dark:text-bondi-blue-200"
+                  }`}
+                >
+                  {status.type === "success" ? "¡Éxito!" : "Error"}
+                </p>
+                <p
+                  className={`text-sm ${
+                    status.type === "success"
+                      ? "text-emerald-700 dark:text-emerald-300"
+                      : "text-bondi-blue-700 dark:text-bondi-blue-300"
+                  } break-words`}
+                >
+                  {status.message}
+                </p>
+                {status.type === "success" &&
+                  status.message.includes("TX:") && (
+                    <button
+                      onClick={async () => {
+                        const txHash = status.message.split("TX:")[1]?.trim();
+                        if (txHash) {
+                          try {
+                            await navigator.clipboard.writeText(txHash);
+                            setCopiedTxHash(true);
+                            setTimeout(() => setCopiedTxHash(false), 2000);
+                          } catch (err) {
+                            console.error("Error al copiar:", err);
+                          }
+                        }
+                      }}
+                      className="mt-2 text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                    >
+                      {copiedTxHash ? (
+                        <>
+                          <span>✓</span>
+                          <span>Copiado</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>📋</span>
+                          <span>Copiar TX Hash</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+              </div>
+            </div>
           </div>
         )}
       </div>
+
+      {/* Modal de Confirmación */}
+      {showConfirmModal && file && hash && currentWallet && (
+        <>
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
+            onClick={() => setShowConfirmModal(false)}
+          ></div>
+
+          {/* Modal */}
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-lapis-lazuli-900 rounded-2xl shadow-2xl border-2 border-emerald-200 dark:border-lapis-lazuli-700 z-50 max-w-lg w-full mx-4 animate-in fade-in zoom-in-95 duration-300">
+            {/* Header del Modal */}
+            <div className="bg-gradient-to-r from-emerald-500 to-keppel-500 px-6 py-5 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                  <span className="text-2xl">🔒</span>
+                  <span>Confirmar Firma y Almacenamiento</span>
+                </h3>
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white font-bold transition-all transform hover:scale-110"
+                  aria-label="Cerrar"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Contenido del Modal */}
+            <div className="p-6 space-y-5">
+              <div className="bg-keppel-50 dark:bg-keppel-900/20 rounded-xl p-4 border border-keppel-200 dark:border-keppel-700">
+                <p className="text-sm text-indigo-dye-700 dark:text-keppel-200 mb-3">
+                  Estás a punto de firmar y almacenar este documento en la
+                  blockchain. Esta acción es{" "}
+                  <strong className="text-emerald-600 dark:text-emerald-400">
+                    permanente e irreversible
+                  </strong>
+                  .
+                </p>
+              </div>
+
+              {/* Información del Documento */}
+              <div className="space-y-3">
+                <div className="bg-light-green-50 dark:bg-keppel-900/20 rounded-lg p-4 border border-light-green-200 dark:border-keppel-700">
+                  <p className="text-xs font-semibold text-indigo-dye-600 dark:text-keppel-300 mb-2 uppercase tracking-wide">
+                    📄 Archivo
+                  </p>
+                  <p className="text-sm font-medium text-indigo-dye-700 dark:text-keppel-200 break-all">
+                    {file.name}
+                  </p>
+                  <p className="text-xs text-indigo-dye-600 dark:text-keppel-300 mt-1">
+                    Tamaño: {(file.size / 1024).toFixed(2)} KB
+                  </p>
+                </div>
+
+                <div className="bg-keppel-50 dark:bg-keppel-900/20 rounded-lg p-4 border border-keppel-200 dark:border-keppel-700">
+                  <p className="text-xs font-semibold text-indigo-dye-600 dark:text-keppel-300 mb-2 uppercase tracking-wide">
+                    🔐 Hash SHA-256
+                  </p>
+                  <p className="text-xs font-mono text-indigo-dye dark:text-keppel-100 break-all bg-white dark:bg-lapis-lazuli-800 p-2 rounded border border-keppel-200 dark:border-keppel-700">
+                    {hash}
+                  </p>
+                </div>
+
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border border-emerald-200 dark:border-emerald-700">
+                  <p className="text-xs font-semibold text-indigo-dye-600 dark:text-keppel-300 mb-2 uppercase tracking-wide">
+                    💼 Wallet
+                  </p>
+                  <p className="text-sm font-mono text-emerald-700 dark:text-emerald-300 break-all">
+                    {currentWallet.address}
+                  </p>
+                </div>
+              </div>
+
+              {/* Advertencia */}
+              <div className="bg-bondi-blue-50 dark:bg-bondi-blue-900/20 rounded-lg p-4 border-l-4 border-bondi-blue-400 dark:border-bondi-blue-600">
+                <div className="flex items-start gap-2">
+                  <span className="text-lg">⚠️</span>
+                  <div className="text-xs text-bondi-blue-700 dark:text-bondi-blue-300 space-y-1">
+                    <p className="font-semibold mb-1">Importante:</p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li>El documento será firmado con tu wallet activa</li>
+                      <li>
+                        La transacción consumirá gas (gratis en Anvil local)
+                      </li>
+                      <li>No podrás almacenar el mismo documento dos veces</li>
+                      <li>
+                        El hash se almacenará permanentemente en la blockchain
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer del Modal */}
+            <div className="bg-gray-50 dark:bg-lapis-lazuli-800 px-6 py-4 rounded-b-2xl border-t border-gray-200 dark:border-lapis-lazuli-700 flex gap-3">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 px-4 py-2.5 bg-gray-200 hover:bg-gray-300 dark:bg-lapis-lazuli-700 dark:hover:bg-lapis-lazuli-600 text-gray-700 dark:text-gray-200 font-semibold rounded-xl transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmStore}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-keppel-500 hover:from-emerald-600 hover:to-keppel-600 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center justify-center gap-2"
+              >
+                <span>🔒</span>
+                <span>Confirmar y Firmar</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Modal de Ayuda */}
       {showHelp && (

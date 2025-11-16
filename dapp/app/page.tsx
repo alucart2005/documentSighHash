@@ -5,7 +5,6 @@ import FileUpload from "@/components/FileUpload";
 import DocumentVerifier from "@/components/DocumentVerifier";
 import DocumentList from "@/components/DocumentList";
 import ConnectionStatus from "@/components/ConnectionStatus";
-import ContractStatus from "@/components/ContractStatus";
 
 export default function Home() {
   return (
@@ -34,8 +33,6 @@ export default function Home() {
             </div>
           </div>
         </header>
-
-        <ContractStatus />
 
         {/* Main content grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -67,7 +64,7 @@ export default function Home() {
             </p>
           </div>
         </footer>
-        
+
         {/* Spacer to prevent content from being hidden behind fixed footer */}
         <div className="h-12"></div>
       </div>
