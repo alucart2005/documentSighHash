@@ -57,7 +57,7 @@ export function useContractConfig() {
     fetchConfig();
 
     // Opcional: refrescar la configuración periódicamente
-    const interval = setInterval(fetchConfig, 5000); // Cada 5 segundos
+    const interval = setInterval(fetchConfig, 3000); // Cada 3 segundos (más frecuente)
 
     return () => {
       mounted = false;

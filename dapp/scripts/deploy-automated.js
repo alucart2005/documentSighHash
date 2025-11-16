@@ -495,6 +495,144 @@ function updateConfig(contractAddress) {
 }
 
 /**
+ * Verifica si el contrato está desplegado en la dirección especificada
+ */
+function verifyContractDeployed(contractAddress) {
+  return new Promise((resolve, reject) => {
+    // Normalizar la dirección (asegurar que tenga 0x y esté en minúsculas)
+    const normalizedAddress = contractAddress.toLowerCase().startsWith("0x")
+      ? contractAddress.toLowerCase()
+      : "0x" + contractAddress.toLowerCase();
+
+    const postData = JSON.stringify({
+      jsonrpc: "2.0",
+      method: "eth_getCode",
+      params: [normalizedAddress, "latest"],
+      id: 1,
+    });
+
+    const options = {
+      hostname: "localhost",
+      port: ANVIL_PORT,
+      path: "/",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(postData),
+      },
+      timeout: 5000, // Aumentar timeout
+    };
+
+    const req = http.request(options, (res) => {
+      let data = "";
+
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+
+      res.on("end", () => {
+        try {
+          const response = JSON.parse(data);
+
+          // Verificar si hay error en la respuesta
+          if (response.error) {
+            console.warn("Error en respuesta RPC:", response.error);
+            resolve(false);
+            return;
+          }
+
+          // Verificar si hay código desplegado
+          const code = response.result;
+          if (code && code !== "0x" && code !== "0x0" && code.length > 2) {
+            console.log(
+              `✅ Contrato verificado: código encontrado (${code.length} caracteres)`
+            );
+            resolve(true); // Contrato desplegado
+          } else {
+            console.log(`⚠️  Contrato no desplegado: código = ${code}`);
+            resolve(false); // Contrato no desplegado
+          }
+        } catch (error) {
+          console.warn("Error parseando respuesta:", error);
+          reject(error);
+        }
+      });
+    });
+
+    req.on("error", (error) => {
+      reject(error);
+    });
+
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("Connection timeout"));
+    });
+
+    req.write(postData);
+    req.end();
+  });
+}
+
+/**
+ * Verifica si el contrato necesita ser redesplegado
+ */
+async function checkAndRedeployIfNeeded() {
+  try {
+    // Leer la configuración actual si existe
+    let currentConfig = null;
+    if (fs.existsSync(CONFIG_FILE)) {
+      try {
+        const configData = fs.readFileSync(CONFIG_FILE, "utf8");
+        currentConfig = JSON.parse(configData);
+      } catch (error) {
+        console.log(
+          "⚠️  No se pudo leer la configuración existente, se desplegará nuevo contrato"
+        );
+      }
+    }
+
+    // Si hay configuración, verificar si el contrato está desplegado
+    if (currentConfig && currentConfig.contractAddress) {
+      console.log(
+        `🔍 Verificando si el contrato está desplegado en ${currentConfig.contractAddress}...`
+      );
+
+      try {
+        const isDeployed = await verifyContractDeployed(
+          currentConfig.contractAddress
+        );
+        if (isDeployed) {
+          console.log(
+            "✅ El contrato ya está desplegado en la dirección configurada"
+          );
+          console.log(`📍 Dirección: ${currentConfig.contractAddress}`);
+          return false; // No necesita redesplegar
+        } else {
+          console.log(
+            "⚠️  El contrato no está desplegado en la dirección configurada"
+          );
+          console.log("🔄 Se procederá a redesplegar el contrato...");
+          return true; // Necesita redesplegar
+        }
+      } catch (error) {
+        console.log(
+          "⚠️  No se pudo verificar el estado del contrato:",
+          error.message
+        );
+        console.log("🔄 Se procederá a desplegar el contrato...");
+        return true; // En caso de error, redesplegar
+      }
+    }
+
+    // Si no hay configuración, necesita desplegar
+    return true;
+  } catch (error) {
+    console.log("⚠️  Error verificando contrato:", error.message);
+    return true; // En caso de error, redesplegar
+  }
+}
+
+/**
  * Función principal
  */
 async function main() {
@@ -514,13 +652,53 @@ async function main() {
       anvilRunning = true;
     }
 
-    // 2. Desplegar el contrato
+    // 2. Verificar si el contrato necesita ser redesplegado
+    const needsDeploy = await checkAndRedeployIfNeeded();
+
+    if (!needsDeploy) {
+      console.log(
+        "\n✅ No se requiere deployment, el contrato ya está desplegado"
+      );
+      process.exit(0);
+      return;
+    }
+
+    // 3. Desplegar el contrato
     const deployOutput = await deployContract();
 
-    // 3. Extraer la dirección del contrato
+    // 4. Extraer la dirección del contrato
     const contractAddress = await extractContractAddress(deployOutput);
 
-    // 4. Actualizar el archivo de configuración
+    // 5. Verificar que el contrato se desplegó correctamente
+    console.log("🔍 Verificando que el contrato se desplegó correctamente...");
+    try {
+      // Esperar un poco para que la transacción se procese
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const isDeployed = await verifyContractDeployed(contractAddress);
+      if (!isDeployed) {
+        console.warn(
+          "⚠️  El contrato fue desplegado pero la verificación falló. Esto puede ser normal si Anvil se reinició."
+        );
+        console.warn(
+          "   El contrato debería estar disponible en la próxima verificación."
+        );
+      } else {
+        console.log(
+          "✅ Contrato verificado correctamente después del deployment"
+        );
+      }
+    } catch (verifyError) {
+      console.warn(
+        "⚠️  No se pudo verificar el contrato después del deployment:",
+        verifyError.message
+      );
+      console.warn(
+        "   El contrato debería estar desplegado, pero la verificación falló."
+      );
+    }
+
+    // 6. Actualizar el archivo de configuración
     updateConfig(contractAddress);
 
     console.log("\n🎉 Deployment automatizado completado exitosamente!");

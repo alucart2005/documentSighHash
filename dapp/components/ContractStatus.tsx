@@ -10,6 +10,7 @@ export default function ContractStatus() {
   const { config: contractConfig } = useContractConfig();
   const [isDeployed, setIsDeployed] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
+  const [deploying, setDeploying] = useState(false);
 
   const checkContract = async () => {
     if (!provider || !contract || !contractConfig.contractAddress) return;
@@ -30,11 +31,67 @@ export default function ContractStatus() {
     }
   };
 
+  const deployContract = async () => {
+    setDeploying(true);
+    try {
+      console.log("🚀 Iniciando deployment del contrato...");
+
+      const response = await fetch("/api/deploy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Error ejecutando deployment");
+      }
+
+      console.log("✅ Deployment completado:", data);
+
+      // Esperar un poco para que la configuración se actualice
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Recargar la configuración y verificar el contrato
+      window.location.reload(); // Recargar para obtener la nueva configuración
+    } catch (error: any) {
+      console.error("Error ejecutando deployment:", error);
+      alert(
+        `Error ejecutando deployment:\n\n${error.message}\n\n` +
+          `Por favor verifica que:\n` +
+          `1. Anvil esté corriendo\n` +
+          `2. Forge esté instalado y en el PATH\n` +
+          `3. El script de deployment tenga permisos de ejecución`
+      );
+    } finally {
+      setDeploying(false);
+    }
+  };
+
   useEffect(() => {
     if (isConnected && provider && contract && contractConfig.contractAddress) {
       checkContract();
     }
   }, [isConnected, provider, contract, contractConfig.contractAddress]);
+
+  // Re-verificar cuando cambie la configuración del contrato
+  useEffect(() => {
+    if (
+      isConnected &&
+      provider &&
+      contract &&
+      contractConfig.contractAddress &&
+      !checking
+    ) {
+      // Pequeño delay para asegurar que la configuración se haya actualizado
+      const timer = setTimeout(() => {
+        checkContract();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [contractConfig.contractAddress]);
 
   if (!isConnected) {
     return null;
@@ -86,12 +143,22 @@ export default function ContractStatus() {
               </p>
               <p>4. Actualiza CONTRACT_ADDRESS en dapp/lib/contract.ts</p>
             </div>
-            <button
-              onClick={checkContract}
-              className="mt-4 px-5 py-2.5 bg-bondi-blue-500 hover:bg-bondi-blue-600 text-white text-sm font-semibold rounded-lg transition-all shadow-md hover:shadow-lg transform hover:scale-105"
-            >
-              Verificar Nuevamente
-            </button>
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={checkContract}
+                disabled={checking}
+                className="px-5 py-2.5 bg-bondi-blue-500 hover:bg-bondi-blue-600 disabled:bg-bondi-blue-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                {checking ? "Verificando..." : "Verificar Nuevamente"}
+              </button>
+              <button
+                onClick={deployContract}
+                disabled={deploying || checking}
+                className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                {deploying ? "Desplegando..." : "🚀 Desplegar Contrato"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
