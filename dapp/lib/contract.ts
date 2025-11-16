@@ -70,11 +70,110 @@ export const FILE_HASH_STORAGE_ABI = [
   },
 ] as const;
 
-// Dirección del contrato desplegado en Anvil
-export const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+// Valores por defecto (fallback)
+function getDefaultContractAddress(): string {
+  return (
+    process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
+    "0x5fbdb2315678afecb367f032d93f642f64180aa3"
+  );
+}
 
-// URL de Anvil
-export const ANVIL_RPC_URL = "http://localhost:8545";
+function getDefaultRpcUrl(): string {
+  return process.env.NEXT_PUBLIC_ANVIL_RPC_URL || "http://localhost:8545";
+}
+
+// Función para cargar la configuración del contrato (sincrónica, para compatibilidad)
+function loadContractConfigSync() {
+  // En el cliente (browser), usar variables de entorno o valores por defecto
+  if (typeof window !== "undefined") {
+    return {
+      contractAddress: getDefaultContractAddress(),
+      rpcUrl: getDefaultRpcUrl(),
+    };
+  }
+
+  // En el servidor (Node.js), leer desde el archivo de configuración
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const configPath = path.join(
+      process.cwd(),
+      "config",
+      "contract-config.json"
+    );
+
+    if (fs.existsSync(configPath)) {
+      const configData = fs.readFileSync(configPath, "utf8");
+      const config = JSON.parse(configData);
+      return {
+        contractAddress: config.contractAddress || getDefaultContractAddress(),
+        rpcUrl: config.rpcUrl || getDefaultRpcUrl(),
+      };
+    }
+  } catch (error) {
+    console.warn(
+      "No se pudo leer el archivo de configuración, usando valores por defecto:",
+      error
+    );
+  }
+
+  return {
+    contractAddress: getDefaultContractAddress(),
+    rpcUrl: getDefaultRpcUrl(),
+  };
+}
+
+// Función para leer la configuración dinámicamente (siempre lee el archivo más reciente)
+export function getContractConfig() {
+  // En el cliente, no podemos leer archivos directamente
+  // Se debe usar el hook useContractConfig() que llama al API
+  if (typeof window !== "undefined") {
+    return {
+      contractAddress: getDefaultContractAddress(),
+      rpcUrl: getDefaultRpcUrl(),
+    };
+  }
+
+  // En el servidor, leer siempre el archivo más reciente
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const configPath = path.join(
+      process.cwd(),
+      "config",
+      "contract-config.json"
+    );
+
+    if (fs.existsSync(configPath)) {
+      // Leer el archivo cada vez (sin cache)
+      const configData = fs.readFileSync(configPath, "utf8");
+      const config = JSON.parse(configData);
+      return {
+        contractAddress: config.contractAddress || getDefaultContractAddress(),
+        rpcUrl: config.rpcUrl || getDefaultRpcUrl(),
+      };
+    }
+  } catch (error) {
+    console.warn(
+      "No se pudo leer el archivo de configuración, usando valores por defecto:",
+      error
+    );
+  }
+
+  return {
+    contractAddress: getDefaultContractAddress(),
+    rpcUrl: getDefaultRpcUrl(),
+  };
+}
+
+// Cargar configuración inicial (para compatibilidad con código existente)
+const config = loadContractConfigSync();
+
+// Dirección del contrato desplegado en Anvil (valores por defecto, usar getContractConfig() para valores actualizados)
+export const CONTRACT_ADDRESS = config.contractAddress;
+
+// URL de Anvil (valores por defecto, usar getContractConfig() para valores actualizados)
+export const ANVIL_RPC_URL = config.rpcUrl;
 
 // Claves privadas de las 10 wallets de prueba de Anvil (por defecto)
 // Estas son las claves privadas estándar que Anvil usa cuando se inicia sin parámetros

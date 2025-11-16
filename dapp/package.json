@@ -3,11 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/deploy-automated.js",
     "dev": "next dev",
+    "prebuild": "node scripts/deploy-automated.js",
     "build": "next build",
+    "prestart": "node scripts/deploy-automated.js",
     "start": "next start",
     "lint": "eslint",
-    "check-anvil": "node scripts/check-anvil.js"
+    "check-anvil": "node scripts/check-anvil.js",
+    "deploy": "node scripts/deploy-automated.js"
   },
   "dependencies": {
     "@types/crypto-js": "^4.2.2",

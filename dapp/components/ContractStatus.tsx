@@ -2,22 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { useWallet } from "@/contexts/WalletContext";
-import { CONTRACT_ADDRESS } from "@/lib/contract";
+import { useContractConfig } from "@/hooks/useContractConfig";
 import { formatAddress } from "@/lib/utils";
 
 export default function ContractStatus() {
   const { provider, contract, isConnected } = useWallet();
+  const { config: contractConfig } = useContractConfig();
   const [isDeployed, setIsDeployed] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
 
   const checkContract = async () => {
-    if (!provider || !contract) return;
+    if (!provider || !contract || !contractConfig.contractAddress) return;
 
     setChecking(true);
     try {
       // En ethers.js v6, podemos usar provider directamente o contract.runner.provider
       const contractProvider = contract.runner?.provider || provider;
-      const code = await contractProvider.getCode(CONTRACT_ADDRESS);
+      const code = await contractProvider.getCode(
+        contractConfig.contractAddress
+      );
       setIsDeployed(code !== "0x" && code !== "0x0" && code.length > 2);
     } catch (error) {
       console.error("Error checking contract:", error);
@@ -28,10 +31,10 @@ export default function ContractStatus() {
   };
 
   useEffect(() => {
-    if (isConnected && provider && contract) {
+    if (isConnected && provider && contract && contractConfig.contractAddress) {
       checkContract();
     }
-  }, [isConnected, provider, contract]);
+  }, [isConnected, provider, contract, contractConfig.contractAddress]);
 
   if (!isConnected) {
     return null;
@@ -63,7 +66,7 @@ export default function ContractStatus() {
               El contrato no está desplegado en la dirección:
             </p>
             <p className="text-xs font-mono bg-bondi-blue-100 dark:bg-bondi-blue-800 p-3 rounded-lg mb-4 text-bondi-blue-900 dark:text-bondi-blue-100 border border-bondi-blue-200 dark:border-bondi-blue-700">
-              {CONTRACT_ADDRESS}
+              {contractConfig.contractAddress}
             </p>
             <div className="space-y-2 text-sm text-bondi-blue-700 dark:text-bondi-blue-300">
               <p className="font-semibold">Para desplegar el contrato:</p>
@@ -102,7 +105,7 @@ export default function ContractStatus() {
         <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-200">
           <span className="font-bold">Contrato desplegado:</span>{" "}
           <span className="font-mono bg-emerald-100 dark:bg-emerald-800 px-2 py-1 rounded text-emerald-800 dark:text-emerald-100">
-            {formatAddress(CONTRACT_ADDRESS)}
+            {formatAddress(contractConfig.contractAddress)}
           </span>
         </p>
         <button

@@ -9,12 +9,12 @@ import React, {
 } from "react";
 import { ethers } from "ethers";
 import {
-  ANVIL_RPC_URL,
   ANVIL_PRIVATE_KEYS,
-  CONTRACT_ADDRESS,
   FILE_HASH_STORAGE_ABI,
   normalizePrivateKey,
+  getContractConfig,
 } from "@/lib/contract";
+import { useContractConfig } from "@/hooks/useContractConfig";
 
 interface WalletContextType {
   provider: ethers.JsonRpcProvider | null;
@@ -31,6 +31,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
+  const { config: contractConfig } = useContractConfig();
   const [provider, setProvider] = useState<ethers.JsonRpcProvider | null>(null);
   const [wallets, setWallets] = useState<ethers.Wallet[]>([]);
   const [currentWallet, setCurrentWallet] = useState<ethers.Wallet | null>(
@@ -42,8 +43,17 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const connect = useCallback(async () => {
     try {
+      // Usar la configuración dinámica
+      const rpcUrl = contractConfig.rpcUrl;
+      const contractAddress = contractConfig.contractAddress;
+
+      if (!rpcUrl || !contractAddress) {
+        console.warn("Configuración del contrato no disponible aún");
+        return;
+      }
+
       // Crear provider conectado a Anvil
-      const jsonRpcProvider = new ethers.JsonRpcProvider(ANVIL_RPC_URL);
+      const jsonRpcProvider = new ethers.JsonRpcProvider(rpcUrl);
 
       // Verificar que la conexión funciona haciendo una llamada de prueba
       try {
@@ -51,7 +61,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         console.log("Connected to Anvil. Block number:", blockNumber);
       } catch (connectionError) {
         throw new Error(
-          `No se pudo conectar a Anvil en ${ANVIL_RPC_URL}. ` +
+          `No se pudo conectar a Anvil en ${rpcUrl}. ` +
             `Asegúrate de que Anvil esté corriendo. Error: ${connectionError}`
         );
       }
@@ -155,20 +165,20 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Verificar que el contrato esté desplegado en la dirección especificada
-      const code = await jsonRpcProvider.getCode(CONTRACT_ADDRESS);
+      const code = await jsonRpcProvider.getCode(contractAddress);
       if (code === "0x" || code === "0x0") {
         console.warn(
-          `⚠️ No hay código en la dirección ${CONTRACT_ADDRESS}. ` +
+          `⚠️ No hay código en la dirección ${contractAddress}. ` +
             `El contrato no está desplegado. Por favor despliega el contrato primero.`
         );
         // Continuar de todas formas, pero el usuario verá errores al intentar usar el contrato
       } else {
-        console.log(`✓ Contrato encontrado en ${CONTRACT_ADDRESS}`);
+        console.log(`✓ Contrato encontrado en ${contractAddress}`);
       }
 
       // Crear instancia del contrato
       const contractInstance = new ethers.Contract(
-        CONTRACT_ADDRESS,
+        contractAddress,
         FILE_HASH_STORAGE_ABI,
         defaultWallet
       );
@@ -188,7 +198,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       );
       setIsConnected(false);
     }
-  }, []);
+  }, [contractConfig.rpcUrl, contractConfig.contractAddress]);
 
   const selectWallet = useCallback(
     (index: number) => {
@@ -197,16 +207,16 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setCurrentWallet(selectedWallet);
         setCurrentWalletIndex(index);
 
-        // Actualizar contrato con la nueva wallet
+        // Actualizar contrato con la nueva wallet usando la configuración dinámica
         const contractInstance = new ethers.Contract(
-          CONTRACT_ADDRESS,
+          contractConfig.contractAddress,
           FILE_HASH_STORAGE_ABI,
           selectedWallet
         );
         setContract(contractInstance);
       }
     },
-    [wallets, provider]
+    [wallets, provider, contractConfig.contractAddress]
   );
 
   const disconnect = useCallback(() => {
@@ -218,10 +228,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setIsConnected(false);
   }, []);
 
-  // Auto-conectar al montar el componente
+  // Auto-conectar al montar el componente y cuando cambie la configuración
   useEffect(() => {
-    connect();
-  }, [connect]);
+    if (contractConfig.contractAddress && contractConfig.rpcUrl) {
+      connect();
+    }
+  }, [connect, contractConfig.contractAddress, contractConfig.rpcUrl]);
 
   return (
     <WalletContext.Provider

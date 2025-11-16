@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useWallet } from "@/contexts/WalletContext";
 import { calculateFileHash, formatAddress, formatTimestamp } from "@/lib/utils";
-import { CONTRACT_ADDRESS } from "@/lib/contract";
+import { useContractConfig } from "@/hooks/useContractConfig";
 
 export default function DocumentVerifier() {
   const { contract, isConnected } = useWallet();
+  const { config: contractConfig } = useContractConfig();
   const [file, setFile] = useState<File | null>(null);
   const [hash, setHash] = useState<string>("");
   const [verificationResult, setVerificationResult] = useState<{
@@ -65,9 +66,9 @@ export default function DocumentVerifier() {
         );
       }
 
-      // Usar CONTRACT_ADDRESS directamente en lugar de contract.target para evitar errores
+      // Usar la configuración dinámica del contrato
       // Verificar si el contrato tiene código
-      const code = await provider.getCode(CONTRACT_ADDRESS);
+      const code = await provider.getCode(contractConfig.contractAddress);
       if (!code || code === "0x" || code === "0x0") {
         throw new Error(
           "El contrato no está desplegado en la dirección especificada. " +
@@ -88,8 +89,8 @@ export default function DocumentVerifier() {
         ) {
           throw new Error(
             "El contrato no está desplegado o la dirección es incorrecta. " +
-              `Dirección actual: ${CONTRACT_ADDRESS}. ` +
-              "Por favor verifica que el contrato esté desplegado y actualiza CONTRACT_ADDRESS en lib/contract.ts"
+              `Dirección actual: ${contractConfig.contractAddress}. ` +
+              "Por favor verifica que el contrato esté desplegado."
           );
         }
         throw callError;

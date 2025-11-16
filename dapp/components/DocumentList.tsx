@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useWallet } from "@/contexts/WalletContext";
 import { useDocuments } from "@/contexts/DocumentContext";
 import { formatAddress, formatTimestamp, isValidHash } from "@/lib/utils";
-import { CONTRACT_ADDRESS } from "@/lib/contract";
+import { useContractConfig } from "@/hooks/useContractConfig";
 
 interface DocumentInfo {
   hash: string;
@@ -15,6 +15,7 @@ interface DocumentInfo {
 
 export default function DocumentList() {
   const { contract, provider, isConnected } = useWallet();
+  const { config: contractConfig } = useContractConfig();
   const {
     documents: localDocuments,
     toggleDocumentActive,
@@ -61,10 +62,15 @@ export default function DocumentList() {
         // En ethers.js v6, el provider está en contract.runner.provider
         const contractProvider = contract.runner?.provider || provider;
         if (contractProvider) {
-          // Usar CONTRACT_ADDRESS directamente en lugar de contract.target
-          const code = await contractProvider.getCode(CONTRACT_ADDRESS);
+          // Usar la configuración dinámica del contrato
+          const code = await contractProvider.getCode(
+            contractConfig.contractAddress
+          );
           if (!code || code === "0x" || code === "0x0") {
-            console.warn("Contrato no desplegado en", CONTRACT_ADDRESS);
+            console.warn(
+              "Contrato no desplegado en",
+              contractConfig.contractAddress
+            );
             return null;
           }
         }
@@ -191,8 +197,10 @@ export default function DocumentList() {
       // En ethers.js v6, el provider está en contract.runner.provider
       const contractProvider = contract.runner?.provider || provider;
       if (contractProvider) {
-        // Usar CONTRACT_ADDRESS directamente en lugar de contract.target
-        const code = await contractProvider.getCode(CONTRACT_ADDRESS);
+        // Usar la configuración dinámica del contrato
+        const code = await contractProvider.getCode(
+          contractConfig.contractAddress
+        );
         if (!code || code === "0x" || code === "0x0") {
           alert(
             "El contrato no está desplegado. " +

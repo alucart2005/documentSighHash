@@ -1,5 +1,52 @@
 # Guía de Deployment del Contrato
 
+## 🚀 Sistema Automatizado de Deployment
+
+**¡Buenas noticias!** El proyecto ahora incluye un sistema automatizado que:
+
+- ✅ Verifica si Anvil está corriendo
+- ✅ Inicia Anvil automáticamente si no está corriendo
+- ✅ Despliega el contrato FileHashStorage automáticamente
+- ✅ Actualiza la dirección del contrato en la configuración
+- ✅ Se ejecuta automáticamente al iniciar la aplicación
+
+### Uso Automatizado
+
+El sistema se ejecuta automáticamente cuando ejecutas:
+
+```bash
+npm run dev      # Ejecuta el deployment antes de iniciar el servidor de desarrollo
+npm run build    # Ejecuta el deployment antes de construir la aplicación
+npm run start    # Ejecuta el deployment antes de iniciar el servidor de producción
+```
+
+También puedes ejecutar el deployment manualmente:
+
+```bash
+npm run deploy
+```
+
+### Archivos de Configuración
+
+El sistema actualiza automáticamente:
+
+- `dapp/config/contract-config.json` - Archivo de configuración con la dirección del contrato
+- La aplicación lee esta configuración automáticamente desde `lib/contract.ts`
+
+### Cómo Funciona
+
+1. **Verificación de Anvil**: El script verifica si Anvil está corriendo en `http://localhost:8545`
+2. **Inicio Automático**: Si Anvil no está corriendo, lo inicia automáticamente en background
+3. **Deployment**: Ejecuta `forge script` para desplegar el contrato
+4. **Extracción de Dirección**: Lee la dirección del contrato desde los archivos de broadcast de Foundry
+5. **Actualización de Configuración**: Actualiza `config/contract-config.json` con la nueva dirección
+
+---
+
+## 📝 Deployment Manual (Método Antiguo)
+
+Si prefieres desplegar manualmente o el sistema automatizado no funciona:
+
 ## Problema: Error "could not decode result data (value="0x")"
 
 Este error indica que **el contrato no está desplegado** en la dirección especificada en `lib/contract.ts`.

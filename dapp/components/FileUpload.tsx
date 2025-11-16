@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useWallet } from "@/contexts/WalletContext";
 import { useDocuments } from "@/contexts/DocumentContext";
 import { calculateFileHash, signHash } from "@/lib/utils";
-import { CONTRACT_ADDRESS } from "@/lib/contract";
+import { useContractConfig } from "@/hooks/useContractConfig";
 
 export default function FileUpload() {
   const { currentWallet, contract, isConnected } = useWallet();
+  const { config: contractConfig } = useContractConfig();
   const { addDocument } = useDocuments();
   const [file, setFile] = useState<File | null>(null);
   const [hash, setHash] = useState<string>("");
@@ -67,8 +68,8 @@ export default function FileUpload() {
         throw new Error("Provider no disponible");
       }
 
-      // Usar CONTRACT_ADDRESS directamente en lugar de contract.target para evitar errores
-      const code = await provider.getCode(CONTRACT_ADDRESS);
+      // Usar la configuración dinámica del contrato
+      const code = await provider.getCode(contractConfig.contractAddress);
       if (!code || code === "0x" || code === "0x0") {
         throw new Error(
           "El contrato no está desplegado. " +
