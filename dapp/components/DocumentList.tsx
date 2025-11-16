@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useWallet } from "@/contexts/WalletContext";
+import { useDocuments } from "@/contexts/DocumentContext";
 import { formatAddress, formatTimestamp, isValidHash } from "@/lib/utils";
 import { CONTRACT_ADDRESS } from "@/lib/contract";
-import { ethers } from "ethers";
 
 interface DocumentInfo {
   hash: string;
@@ -15,7 +15,11 @@ interface DocumentInfo {
 
 export default function DocumentList() {
   const { contract, provider, isConnected } = useWallet();
-  const [documents, setDocuments] = useState<DocumentInfo[]>([]);
+  const {
+    documents: localDocuments,
+    toggleDocumentActive,
+    addDocument,
+  } = useDocuments();
   const [loading, setLoading] = useState(false);
   const [searchHash, setSearchHash] = useState("");
 
@@ -112,7 +116,22 @@ export default function DocumentList() {
 
         // Validar hash antes de cargar
         if (hash && isValidHash(hash)) {
-          loadDocument(hash);
+          loadDocument(hash).then((doc) => {
+            if (doc) {
+              // Verificar si ya existe en el contexto local
+              const existsInLocal = localDocuments.some(
+                (d) => d.hash.toLowerCase() === doc.hash.toLowerCase()
+              );
+              if (!existsInLocal) {
+                addDocument({
+                  hash: doc.hash,
+                  timestamp: doc.timestamp,
+                  signer: doc.signer,
+                  signature: doc.signature,
+                });
+              }
+            }
+          });
         } else {
           console.warn("Hash inválido recibido del evento:", hash);
         }
@@ -126,7 +145,7 @@ export default function DocumentList() {
     return () => {
       contract.off(filter, handleNewDocument);
     };
-  }, [contract, provider, loadDocument]);
+  }, [contract, provider, loadDocument, localDocuments, addDocument]);
 
   const handleSearch = async () => {
     if (!searchHash.trim() || !contract) return;
@@ -163,12 +182,17 @@ export default function DocumentList() {
 
       const doc = await loadDocument(trimmedHash);
       if (doc) {
-        // Verificar si ya existe en la lista
-        const exists = documents.some(
+        // Guardar en el contexto local si no existe
+        const existsInLocal = localDocuments.some(
           (d) => d.hash.toLowerCase() === doc.hash.toLowerCase()
         );
-        if (!exists) {
-          setDocuments([doc, ...documents]);
+        if (!existsInLocal) {
+          addDocument({
+            hash: doc.hash,
+            timestamp: doc.timestamp,
+            signer: doc.signer,
+            signature: doc.signature,
+          });
         }
       } else {
         alert("Documento no encontrado");
@@ -236,41 +260,94 @@ export default function DocumentList() {
           </button>
         </div>
 
-        {documents.length === 0 ? (
+        {localDocuments.length === 0 ? (
           <div className="p-10 text-center bg-light-green-50 dark:bg-keppel-900/20 rounded-xl border-2 border-light-green-200 dark:border-keppel-700">
             <p className="text-indigo-dye-600 dark:text-keppel-300 font-medium mb-2">
               No hay documentos cargados.
             </p>
             <p className="text-sm text-indigo-dye-500 dark:text-keppel-400">
-              Busca un documento por su hash para comenzar.
+              Sube un documento o busca uno por su hash para comenzar.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {documents.map((doc, index) => (
+            {localDocuments.map((doc, index) => (
               <div
-                key={index}
-                className="p-5 bg-gradient-to-br from-light-green-50 to-keppel-50 dark:from-keppel-900/20 dark:to-lapis-lazuli-800 rounded-xl border-2 border-light-green-200 dark:border-keppel-700 shadow-md hover:shadow-lg transition-all"
+                key={`${doc.hash}-${index}`}
+                className={`p-5 rounded-xl border-2 shadow-md hover:shadow-lg transition-all ${
+                  doc.activo
+                    ? "bg-gradient-to-br from-light-green-50 to-keppel-50 dark:from-keppel-900/20 dark:to-lapis-lazuli-800 border-light-green-200 dark:border-keppel-700"
+                    : "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-lapis-lazuli-800 border-gray-300 dark:border-gray-700 opacity-75"
+                }`}
               >
                 <div className="space-y-3 text-sm">
-                  <p className="text-indigo-dye-700 dark:text-keppel-200">
-                    <span className="font-bold">Hash:</span>{" "}
-                    <span className="font-mono text-indigo-dye dark:text-keppel-100 break-all bg-white dark:bg-lapis-lazuli-800 px-2 py-1 rounded border border-keppel-200 dark:border-keppel-700">
-                      {doc.hash}
-                    </span>
-                  </p>
-                  <p className="text-indigo-dye-700 dark:text-keppel-200">
-                    <span className="font-bold">Signer:</span>{" "}
-                    <span className="font-mono text-indigo-dye dark:text-keppel-100">
-                      {formatAddress(doc.signer)}
-                    </span>
-                  </p>
-                  <p className="text-indigo-dye-700 dark:text-keppel-200">
-                    <span className="font-bold">Timestamp:</span>{" "}
-                    <span className="text-indigo-dye dark:text-keppel-100">
-                      {formatTimestamp(doc.timestamp)}
-                    </span>
-                  </p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 space-y-3">
+                      <p className="text-indigo-dye-700 dark:text-keppel-200">
+                        <span className="font-bold">Hash:</span>{" "}
+                        <span className="font-mono text-indigo-dye dark:text-keppel-100 break-all bg-white dark:bg-lapis-lazuli-800 px-2 py-1 rounded border border-keppel-200 dark:border-keppel-700">
+                          {doc.hash}
+                        </span>
+                      </p>
+                      {doc.fileName && (
+                        <p className="text-indigo-dye-700 dark:text-keppel-200">
+                          <span className="font-bold">Archivo:</span>{" "}
+                          <span className="text-indigo-dye dark:text-keppel-100">
+                            {doc.fileName}
+                            {doc.fileSize
+                              ? ` (${(doc.fileSize / 1024).toFixed(2)} KB)`
+                              : ""}
+                          </span>
+                        </p>
+                      )}
+                      <p className="text-indigo-dye-700 dark:text-keppel-200">
+                        <span className="font-bold">Signer:</span>{" "}
+                        <span className="font-mono text-indigo-dye dark:text-keppel-100">
+                          {formatAddress(doc.signer)}
+                        </span>
+                      </p>
+                      <p className="text-indigo-dye-700 dark:text-keppel-200">
+                        <span className="font-bold">Timestamp:</span>{" "}
+                        <span className="text-indigo-dye dark:text-keppel-100">
+                          {formatTimestamp(doc.timestamp)}
+                        </span>
+                      </p>
+                      {doc.txHash && (
+                        <p className="text-indigo-dye-700 dark:text-keppel-200">
+                          <span className="font-bold">TX Hash:</span>{" "}
+                          <span className="font-mono text-xs text-indigo-dye dark:text-keppel-100 break-all bg-white dark:bg-lapis-lazuli-800 px-2 py-1 rounded border border-keppel-200 dark:border-keppel-700">
+                            {doc.txHash}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <button
+                        onClick={() => toggleDocumentActive(doc.hash)}
+                        className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all shadow-md hover:shadow-lg transform hover:scale-105 ${
+                          doc.activo
+                            ? "bg-emerald-500 hover:bg-emerald-600 text-white"
+                            : "bg-gray-400 hover:bg-gray-500 text-white"
+                        }`}
+                        title={
+                          doc.activo
+                            ? "Desactivar documento"
+                            : "Activar documento"
+                        }
+                      >
+                        {doc.activo ? "✓ Activo" : "✗ Inactivo"}
+                      </button>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          doc.activo
+                            ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                            : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                        }`}
+                      >
+                        {doc.activo ? "Activo" : "Inactivo"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}

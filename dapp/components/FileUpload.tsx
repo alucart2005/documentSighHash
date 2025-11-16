@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useWallet } from "@/contexts/WalletContext";
+import { useDocuments } from "@/contexts/DocumentContext";
 import { calculateFileHash, signHash } from "@/lib/utils";
 import { CONTRACT_ADDRESS } from "@/lib/contract";
 
 export default function FileUpload() {
   const { currentWallet, contract, isConnected } = useWallet();
+  const { addDocument } = useDocuments();
   const [file, setFile] = useState<File | null>(null);
   const [hash, setHash] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -112,6 +114,21 @@ export default function FileUpload() {
       // Almacenar en el contrato
       const tx = await contract.storeDocumentHash(hash, timestamp, signature);
       await tx.wait();
+
+      // Obtener información del documento almacenado para guardarlo localmente
+      const [documentHash, documentTimestamp, signer, documentSignature] =
+        await contract.getDocumentInfo(hash);
+
+      // Guardar en el contexto local
+      addDocument({
+        hash: documentHash,
+        timestamp: documentTimestamp,
+        signer: signer,
+        signature: documentSignature,
+        fileName: file.name,
+        fileSize: file.size,
+        txHash: tx.hash,
+      });
 
       setStatus({
         type: "success",
