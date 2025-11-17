@@ -15,6 +15,7 @@ import {
   getContractConfig,
 } from "@/lib/contract";
 import { useContractConfig } from "@/hooks/useContractConfig";
+import { useErrorDialog } from "@/contexts/ErrorDialogContext";
 
 interface WalletContextType {
   provider: ethers.JsonRpcProvider | null;
@@ -32,6 +33,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const { config: contractConfig } = useContractConfig();
+  const { showError, hideError } = useErrorDialog();
   const [provider, setProvider] = useState<ethers.JsonRpcProvider | null>(null);
   const [wallets, setWallets] = useState<ethers.Wallet[]>([]);
   const [currentWallet, setCurrentWallet] = useState<ethers.Wallet | null>(
@@ -167,11 +169,18 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       // Verificar que el contrato esté desplegado en la dirección especificada
       const code = await jsonRpcProvider.getCode(contractAddress);
       if (code === "0x" || code === "0x0") {
-        console.warn(
-          `⚠️ No hay código en la dirección ${contractAddress}. ` +
-            `El contrato no está desplegado. Por favor despliega el contrato primero.`
-        );
-        // Continuar de todas formas, pero el usuario verá errores al intentar usar el contrato
+        const errorMsg =
+          `El contrato no está desplegado en la dirección ${contractAddress}. ` +
+          `Por favor despliega el contrato primero.`;
+        console.warn(`⚠️ ${errorMsg}`);
+
+        // Mostrar diálogo de error con opción de desplegar
+        const rpcUrl = contractConfig.rpcUrl || "http://localhost:8545";
+        showError(errorMsg, rpcUrl, true, contractAddress);
+
+        // No establecer isConnected como true si el contrato no está desplegado
+        setIsConnected(false);
+        return;
       } else {
         console.log(`✓ Contrato encontrado en ${contractAddress}`);
       }
@@ -185,20 +194,25 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setContract(contractInstance);
 
       setIsConnected(true);
+      // Close error dialog if it was open from a previous error
+      hideError();
     } catch (error: any) {
       console.error("Error connecting to Anvil:", error);
       const errorMessage =
         error?.message || "Error desconocido al conectar con Anvil";
-      alert(
-        `Error conectando a Anvil:\n\n${errorMessage}\n\n` +
-          `Por favor verifica que:\n` +
-          `1. Anvil esté corriendo en http://localhost:8545\n` +
-          `2. No haya problemas de CORS\n` +
-          `3. El puerto 8545 no esté siendo usado por otro proceso`
-      );
+
+      // Show elegant error dialog instead of alert
+      const rpcUrl = contractConfig.rpcUrl || "http://localhost:8545";
+      showError(errorMessage, rpcUrl);
+
       setIsConnected(false);
     }
-  }, [contractConfig.rpcUrl, contractConfig.contractAddress]);
+  }, [
+    contractConfig.rpcUrl,
+    contractConfig.contractAddress,
+    showError,
+    hideError,
+  ]);
 
   const selectWallet = useCallback(
     (index: number) => {
