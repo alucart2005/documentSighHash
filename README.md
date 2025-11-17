@@ -5,6 +5,10 @@
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+<p align="center">
+  <img src="https://github.com/alucart2005/documentSighHash/blob/main/dapp/public/Capture.jpg?raw=true" alt="Descripción">
+</p>
+
 ## 📋 Descripción del Proyecto
 
 **FileHashStorage** es una aplicación descentralizada (dApp) completa que permite almacenar y verificar la autenticidad de documentos utilizando la tecnología blockchain de Ethereum. El sistema combina smart contracts desarrollados con Foundry y una interfaz web moderna construida con Next.js.
